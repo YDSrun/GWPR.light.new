@@ -6,3 +6,4 @@
 ^\.github$
 ^appveyor\.yml$
 ^GWPR.light_0.2.0.pdf$
+^\.spec-workflow$

@@ -33,7 +33,7 @@ CV_F_para <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
                       random.method = random.method, cluster.number = cluster.number)
 {
   ID_list_single <- as.vector(ID_list[[1]])
-  wgt <- 0
+
   ID_individual <- 0
   varibale_name_in_equation <- all.vars(formula)
   cl <- parallel::makeCluster(cluster.number)
@@ -49,7 +49,7 @@ CV_F_para <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
     #v0.1.2
     numberOfAim <- nrow(subsample[subsample$aim == 1,])
     subsample <- subsample[order(-subsample$aim),]
-    dp_locat_subsample <- dplyr::select(subsample, 'X', 'Y')
+    dp_locat_subsample <- dplyr::select(subsample, dplyr::all_of(c("X", "Y")))
     dp_locat_subsample <- as.matrix(dp_locat_subsample)
     dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
                              focus = 1, p=p, longlat=longlat)
@@ -58,6 +58,7 @@ CV_F_para <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
     subsample <- subsample[(subsample$wgt > 0.01),]
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
+    wgt <- Psubsample$wgt
     plm_subsample <- try(plm::plm(formula=formula, model=model, data=Psubsample,
                                   effect = effect, index=index, weights = wgt,
                                   random.method = random.method), silent = TRUE)

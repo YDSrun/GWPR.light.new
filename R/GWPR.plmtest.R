@@ -49,9 +49,14 @@
 #'                                     index = c("GEOID", "year"), SDF = California,
 #'                                     bw = bw.AIC.Fix, adaptive = FALSE, p = 2,
 #'                                     kernel = "bisquare", longlat = FALSE)
-#' library(tmap)
-#' tm_shape(GWPR.plmtest.resu.F$SDF) +
-#'      tm_polygons(col = "p.value", breaks = c(0, 0.05, 1))
+#' if (requireNamespace("tmap", quietly = TRUE) && requireNamespace("sf", quietly = TRUE)) {
+#'   sdf_sf <- sf::st_as_sf(GWPR.plmtest.resu.F$SDF)
+#'   if (utils::packageVersion("tmap") >= "4.0") {
+#'     tmap::tm_shape(sdf_sf) + tmap::tm_polygons(fill = "p.value")
+#'   } else {
+#'     tmap::tm_shape(sdf_sf) + tmap::tm_polygons(col = "p.value", breaks = c(0, 0.05, 1))
+#'   }
+#' }
 GWPR.plmtest <- function(formula, data, index, SDF, bw = NULL, adaptive = FALSE, p = 2,
                          kernel = "bisquare", longlat = FALSE)
 {
@@ -79,7 +84,7 @@ GWPR.plmtest <- function(formula, data, index, SDF, bw = NULL, adaptive = FALSE,
   ##### 22.6.17 we change this, it is the problem on linux
   data$raw_order_data <- 1:nrow(data)
   raw_id <- index[1]
-  colnames(data)[1] <- "id"
+  names(data)[names(data) == index[1]] <- "id"
   index[1] <- "id"
 
   # Assuming unbalanced panel, get individuals' ID and max record number of individuals
@@ -101,10 +106,12 @@ GWPR.plmtest <- function(formula, data, index, SDF, bw = NULL, adaptive = FALSE,
   }
 
   # Panel SDF preparation
-  SDF@data <- dplyr::select(SDF@data, dplyr::all_of(raw_id))
-  colnames(SDF@data)[1] <- "id"
-  dp.locat <- sp::coordinates(SDF)
-  coord <- cbind(as.data.frame(dp.locat), SDF@data$id)
+  sdf_data <- SDF@data
+  sdf_data$id <- sdf_data[[raw_id]]
+  SDF_work <- SDF
+  SDF_work@data <- sdf_data
+  dp.locat <- sp::coordinates(SDF_work)
+  coord <- cbind(as.data.frame(dp.locat), sdf_data$id)
   colnames(coord) <- c("X", "Y", "id")
   data <- dplyr::left_join(data, coord, by = "id")
 
@@ -118,14 +125,14 @@ GWPR.plmtest <- function(formula, data, index, SDF, bw = NULL, adaptive = FALSE,
   # GWPRegression
   if (adaptive)
   {
-    result <- gwpr_A_plmtest(bw = bw, data = lvl1_data, SDF = SDF, index = index, ID_list = ID_num,
+    result <- gwpr_A_plmtest(bw = bw, data = lvl1_data, SDF = SDF_work, index = index, ID_list = ID_num,
                              formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                              kernel = kernel, huge_data_size = huge_data_size)
 
   }
   else
   {
-    result <- gwpr_F_plmtest(bw = bw, data = lvl1_data, SDF = SDF, index = index, ID_list = ID_num,
+    result <- gwpr_F_plmtest(bw = bw, data = lvl1_data, SDF = SDF_work, index = index, ID_list = ID_num,
                              formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                              kernel = kernel, huge_data_size = huge_data_size)
   }

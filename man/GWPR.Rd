@@ -70,10 +70,14 @@ result.F.AIC <- GWPR(bw = bw.AIC.Fix, formula = formula.GWPR, data = TransAirPol
                      p = 2, effect = "individual", model = "within",
                      kernel = "bisquare", longlat = FALSE)
 summary(result.F.AIC$SDF$Local_R2)
-library(tmap)
-tm_shape(result.F.AIC$SDF) +
-tm_polygons(col = "Local_R2", pal = "Reds",auto.palette.mapping = FALSE,
-            style = 'cont')
+if (requireNamespace("tmap", quietly = TRUE) && requireNamespace("sf", quietly = TRUE)) {
+  sdf_sf <- sf::st_as_sf(result.F.AIC$SDF)
+  if (utils::packageVersion("tmap") >= "4.0") {
+    tmap::tm_shape(sdf_sf) + tmap::tm_polygons(fill = "Local_R2")
+  } else {
+    tmap::tm_shape(sdf_sf) + tmap::tm_polygons(col = "Local_R2", pal = "Reds", style = "cont")
+  }
+}
 }
 \references{
 Fotheringham, A. Stewart, Chris Brunsdon, and Martin Charlton. Geographically weighted regression: the analysis of spatially varying relationships. John Wiley & Sons, 2003.

@@ -12,6 +12,6 @@ drop_ID_with_single_observation <- function(data, ID_num)
 {
   data <- dplyr::left_join(data, ID_num, by = "id")
   data <- data[(data$Count != 1),]
-  data <- dplyr::select(data, -"Count")
+  data <- dplyr::select(data, -dplyr::all_of("Count"))
   return(data)
 }

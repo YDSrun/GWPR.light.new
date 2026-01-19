@@ -114,7 +114,7 @@ bw.GWPR <- function(formula, data, index, SDF, adaptive = FALSE, p = 2, bigdata 
   ##### 22.6.17 we change this, it is the problem on linux
   data$raw_order_data <- 1:nrow(data)
   raw_id <- index[1]
-  colnames(data)[1] <- "id"
+  names(data)[names(data) == index[1]] <- "id"
   index[1] <- "id"
 
   # Assuming unbalanced panel, get individuals' ID and max record number of individuals
@@ -144,10 +144,10 @@ bw.GWPR <- function(formula, data, index, SDF, adaptive = FALSE, p = 2, bigdata 
   }
 
   # Panel SDF preparation
-  SDF@data <- dplyr::select(SDF@data, dplyr::all_of(raw_id))
-  colnames(SDF@data)[1] <- "id"
+  sdf_data <- SDF@data
+  sdf_id <- sdf_data[[raw_id]]
   dp.locat <- sp::coordinates(SDF)
-  coord <- cbind(as.data.frame(dp.locat), SDF@data$id)
+  coord <- cbind(as.data.frame(dp.locat), sdf_id)
   SDF <- 0 # drop the SDF
   colnames(coord) <- c("X", "Y", "id")
   data <- dplyr::left_join(data, coord, by = "id")
@@ -225,7 +225,10 @@ bw.GWPR <- function(formula, data, index, SDF, adaptive = FALSE, p = 2, bigdata 
       if(bigdata)
       {
         upper <- upper * upperratio
-        lower <- lower
+        if (upper < lower)
+        {
+          upper <- lower
+        }
       }
 
       if(bigdata)
@@ -266,75 +269,65 @@ bw.GWPR <- function(formula, data, index, SDF, adaptive = FALSE, p = 2, bigdata 
       {
         stop("Please input upper, lower boundaries (GI.upper and GI.lower) and step length (GI.step) of GI")
       }
-      BandwidthVector <- c()
-      ScoreVector <- c()
+      bw_seq <- seq(GI.lower, GI.upper, by = GI.step)
+      bw_seq <- bw_seq[bw_seq <= GI.upper]
+      BandwidthVector <- bw_seq
+      ScoreVector <- numeric(length(bw_seq))
       if (adaptive)
       {
         if(approach == "CV")
         {
-          bw.now <- GI.lower
-          while (bw.now < GI.upper)
+          for (i in seq_along(bw_seq))
           {
-            BandwidthVector <- append(BandwidthVector, bw.now)
-            Score <- CV_A_para(bw = bw.now, data = lvl1_data, ID_list = ID_num,
+            bw_now <- bw_seq[i]
+            ScoreVector[i] <- CV_A_para(bw = bw_now, data = lvl1_data, ID_list = ID_num,
                                formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                                model = model, index = index, kernel = kernel, effect = effect,
                                random.method = random.method,  cluster.number = cluster.number)
-            ScoreVector <- append(ScoreVector, Score)
-            bw.now = bw.now + GI.step
           }
-          BandwidthSocreTable <- cbind(BandwidthVector, ScoreVector)
+          BandwidthScoreTable <- cbind(BandwidthVector, ScoreVector)
         }
         else
         {
-          bw.now <- GI.lower
-          while (bw.now < GI.upper)
+          for (i in seq_along(bw_seq))
           {
-            BandwidthVector <- append(BandwidthVector, bw.now)
-            Score <- AIC_A_para(bw = bw.now, data_input = lvl1_data, ID_list = ID_num,
+            bw_now <- bw_seq[i]
+            ScoreVector[i] <- AIC_A_para(bw = bw_now, data_input = lvl1_data, ID_list = ID_num,
                                formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                                model = model, index = index, kernel = kernel, effect = effect,
                                random.method = random.method,  cluster.number = cluster.number)
-            ScoreVector <- append(ScoreVector, Score)
-            bw.now = bw.now + GI.step
           }
-          BandwidthSocreTable <- cbind(BandwidthVector, ScoreVector)
+          BandwidthScoreTable <- cbind(BandwidthVector, ScoreVector)
         }
       }
       else
       {
         if(approach == "CV")
         {
-          bw.now <- GI.lower
-          while (bw.now < GI.upper)
+          for (i in seq_along(bw_seq))
           {
-            BandwidthVector <- append(BandwidthVector, bw.now)
-            Score <- CV_F_para(bw = bw.now, data = lvl1_data, ID_list = ID_num,
+            bw_now <- bw_seq[i]
+            ScoreVector[i] <- CV_F_para(bw = bw_now, data = lvl1_data, ID_list = ID_num,
                                formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                                model = model, index = index, kernel = kernel, effect = effect,
                                random.method = random.method,  cluster.number = cluster.number)
-            ScoreVector <- append(ScoreVector, Score)
-            bw.now = bw.now + GI.step
           }
-          BandwidthSocreTable <- cbind(BandwidthVector, ScoreVector)
+          BandwidthScoreTable <- cbind(BandwidthVector, ScoreVector)
         }
         else
         {
-          bw.now <- GI.lower
-          while (bw.now < GI.upper)
+          for (i in seq_along(bw_seq))
           {
-            BandwidthVector <- append(BandwidthVector, bw.now)
-            Score <- AIC_F_para(bw = bw.now, data_input = lvl1_data, ID_list = ID_num,
+            bw_now <- bw_seq[i]
+            ScoreVector[i] <- AIC_F_para(bw = bw_now, data_input = lvl1_data, ID_list = ID_num,
                                formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                                model = model, index = index, kernel = kernel, effect = effect,
                                random.method = random.method,  cluster.number = cluster.number)
-            ScoreVector <- append(ScoreVector, Score)
-            bw.now = bw.now + GI.step
           }
-          BandwidthSocreTable <- cbind(BandwidthVector, ScoreVector)
+          BandwidthScoreTable <- cbind(BandwidthVector, ScoreVector)
         }
       }
-      bw <- BandwidthSocreTable
+      bw <- BandwidthScoreTable
     }
     else
     {
@@ -384,75 +377,65 @@ bw.GWPR <- function(formula, data, index, SDF, adaptive = FALSE, p = 2, bigdata 
       {
         stop("Please input upper, lower boundaries (GI.upper and GI.lower) and step length (GI.step) of GI")
       }
-      BandwidthVector <- c()
-      ScoreVector <- c()
+      bw_seq <- seq(GI.lower, GI.upper, by = GI.step)
+      bw_seq <- bw_seq[bw_seq <= GI.upper]
+      BandwidthVector <- bw_seq
+      ScoreVector <- numeric(length(bw_seq))
       if (adaptive)
       {
         if(approach == "CV")
         {
-          bw.now <- GI.lower
-          while (bw.now < GI.upper)
+          for (i in seq_along(bw_seq))
           {
-            BandwidthVector <- append(BandwidthVector, bw.now)
-            Score <- CV_A(bw = bw.now, data = lvl1_data, ID_list = ID_num,
+            bw_now <- bw_seq[i]
+            ScoreVector[i] <- CV_A(bw = bw_now, data = lvl1_data, ID_list = ID_num,
                           formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                           model = model, index = index, kernel = kernel, effect = effect,
                           random.method = random.method, huge_data_size = huge_data_size)
-            ScoreVector <- append(ScoreVector, Score)
-            bw.now = bw.now + GI.step
           }
-          BandwidthSocreTable <- cbind(BandwidthVector, ScoreVector)
+          BandwidthScoreTable <- cbind(BandwidthVector, ScoreVector)
         }
         else
         {
-          bw.now <- GI.lower
-          while (bw.now < GI.upper)
+          for (i in seq_along(bw_seq))
           {
-            BandwidthVector <- append(BandwidthVector, bw.now)
-            Score <- AIC_A(bw = bw.now, data_input = lvl1_data, ID_list = ID_num,
+            bw_now <- bw_seq[i]
+            ScoreVector[i] <- AIC_A(bw = bw_now, data_input = lvl1_data, ID_list = ID_num,
                           formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                           model = model, index = index, kernel = kernel, effect = effect,
                           random.method = random.method, huge_data_size = huge_data_size)
-            ScoreVector <- append(ScoreVector, Score)
-            bw.now = bw.now + GI.step
           }
-          BandwidthSocreTable <- cbind(BandwidthVector, ScoreVector)
+          BandwidthScoreTable <- cbind(BandwidthVector, ScoreVector)
         }
       }
       else
       {
         if(approach == "CV")
         {
-          bw.now <- GI.lower
-          while (bw.now < GI.upper)
+          for (i in seq_along(bw_seq))
           {
-            BandwidthVector <- append(BandwidthVector, bw.now)
-            Score <- CV_F(bw = bw.now, data = lvl1_data, ID_list = ID_num,
+            bw_now <- bw_seq[i]
+            ScoreVector[i] <- CV_F(bw = bw_now, data = lvl1_data, ID_list = ID_num,
                           formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                           model = model, index = index, kernel = kernel, effect = effect,
                           random.method = random.method, huge_data_size = huge_data_size)
-            ScoreVector <- append(ScoreVector, Score)
-            bw.now = bw.now + GI.step
           }
-          BandwidthSocreTable <- cbind(BandwidthVector, ScoreVector)
+          BandwidthScoreTable <- cbind(BandwidthVector, ScoreVector)
         }
         else
         {
-          bw.now <- GI.lower
-          while (bw.now < GI.upper)
+          for (i in seq_along(bw_seq))
           {
-            BandwidthVector <- append(BandwidthVector, bw.now)
-            Score <- AIC_F(bw = bw.now, data_input = lvl1_data, ID_list = ID_num,
+            bw_now <- bw_seq[i]
+            ScoreVector[i] <- AIC_F(bw = bw_now, data_input = lvl1_data, ID_list = ID_num,
                           formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                           model = model, index = index, kernel = kernel, effect = effect,
                           random.method = random.method, huge_data_size = huge_data_size)
-            ScoreVector <- append(ScoreVector, Score)
-            bw.now = bw.now + GI.step
           }
-          BandwidthSocreTable <- cbind(BandwidthVector, ScoreVector)
+          BandwidthScoreTable <- cbind(BandwidthVector, ScoreVector)
         }
       }
-      bw <- BandwidthSocreTable
+      bw <- BandwidthScoreTable
     } ### gradient increment
 
     #0.1.2 /|\

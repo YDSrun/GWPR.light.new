@@ -33,7 +33,7 @@ protect_model_with_enough_freedom <- function(formula, data, ID_list, index,
       data$aim[data$id != ID_individual] <- 0
       subsample <- data
       subsample <- subsample[order(-subsample$aim),]
-      dp_locat_subsample <- dplyr::select(subsample, 'X', 'Y')
+      dp_locat_subsample <- dplyr::select(subsample, dplyr::all_of(c("X", "Y")))
       dp_locat_subsample <- as.matrix(dp_locat_subsample)
       dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
                                focus = 1, p=p, longlat=longlat)

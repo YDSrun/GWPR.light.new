@@ -31,10 +31,12 @@ CV_F <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
 #  v0.1.1 the loss function is based on local r2
 #  CVscore_vector <- c()
   #v0.1.2
-  residualsVector <- c()
+  total_n <- nrow(data)
+  residualsVector <- numeric(total_n)
+  write_index <- 1
   ID_list_single <- as.vector(ID_list[[1]])
   loop_times <- 1
-  wgt <- 0
+
   varibale_name_in_equation <- all.vars(formula)
   for (ID_individual in ID_list_single)
   {
@@ -44,7 +46,9 @@ CV_F <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
     #v0.1.2
     numberOfAim <- nrow(subsample[subsample$aim == 1,])
     subsample <- subsample[order(-subsample$aim),]
-    dp_locat_subsample <- dplyr::select(subsample, 'X', 'Y')
+    idx <- write_index:(write_index + numberOfAim - 1)
+    write_index <- write_index + numberOfAim
+    dp_locat_subsample <- dplyr::select(subsample, dplyr::all_of(c("X", "Y")))
     dp_locat_subsample <- as.matrix(dp_locat_subsample)
     dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
                              focus = 1, p=p, longlat=longlat)
@@ -53,6 +57,7 @@ CV_F <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
     subsample <- subsample[(subsample$wgt > 0.01),]
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
+    wgt <- Psubsample$wgt
     plm_subsample <- try(plm::plm(formula=formula, model = model, data = Psubsample,
                                   effect = effect, index = index, weights = wgt,
                                   random.method = random.method), silent = TRUE)
@@ -65,7 +70,7 @@ CV_F <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
     {
       residualsLocalAim <- Inf
     }
-    residualsVector <- append(residualsVector, residualsLocalAim)
+    residualsVector[idx] <- residualsLocalAim
 #    v0.1.1 the loss function is based on local r2
 #    if(!inherits(plm_subsample, "try-error"))
 #    {

@@ -60,9 +60,14 @@ GWPR.pFtest.resu.F <- GWPR.pFtest(formula = formula.GWPR, data = TransAirPolCali
                                   SDF = California, bw = bw.AIC.Fix, adaptive = FALSE, p = 2,
                                   effect = "individual", kernel = "bisquare",
                                   longlat = FALSE)
-library(tmap)
-tm_shape(GWPR.pFtest.resu.F$SDF) +
-     tm_polygons(col = "p.value", breaks = c(0, 0.05, 1))
+if (requireNamespace("tmap", quietly = TRUE) && requireNamespace("sf", quietly = TRUE)) {
+  sdf_sf <- sf::st_as_sf(GWPR.pFtest.resu.F$SDF)
+  if (utils::packageVersion("tmap") >= "4.0") {
+    tmap::tm_shape(sdf_sf) + tmap::tm_polygons(fill = "p.value")
+  } else {
+    tmap::tm_shape(sdf_sf) + tmap::tm_polygons(col = "p.value", breaks = c(0, 0.05, 1))
+  }
+}
 }
 \author{
 Chao Li <chaoli0394@gmail.com> Shunsuke Managi

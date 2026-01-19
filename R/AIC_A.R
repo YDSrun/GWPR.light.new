@@ -34,10 +34,12 @@ AIC_A <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, kernel
     ### 0.1.1
     ID_list_single <- as.vector(ID_list[[1]])
     loop_times <- 1
-    wgt <- 0
+
     ### 0.2.0
-    residualsVector <- c()
-    tr_hatmatVector <- c()
+    total_n <- nrow(data_input)
+    residualsVector <- numeric(total_n)
+    tr_hatmatVector <- numeric(total_n)
+    write_index <- 1
     ### 0.2.0
     for (ID_individual in ID_list_single)
     {
@@ -47,8 +49,10 @@ AIC_A <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, kernel
       aim_number <- sum(data_input$aim)
       ### 0.2.0
       subsample <- data_input
+      idx <- write_index:(write_index + aim_number - 1)
+      write_index <- write_index + aim_number
       subsample <- subsample[order(-subsample$aim),]
-      dp_locat_subsample <- dplyr::select(subsample, 'X', 'Y')
+      dp_locat_subsample <- dplyr::select(subsample, dplyr::all_of(c("X", "Y")))
       dp_locat_subsample <- as.matrix(dp_locat_subsample)
       dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
                                focus = 1, p=p, longlat=longlat)
@@ -57,7 +61,12 @@ AIC_A <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, kernel
       id_subsample <- dplyr::select(subsample, "id")
       id_subsample <- id_subsample[!duplicated(id_subsample$id),]
       id_subsample <- as.data.frame(id_subsample)
-      id_subsample <- id_subsample[1:bw,]
+      if (nrow(id_subsample) < 1)
+      {
+        stop("No available individuals for bandwidth selection.")
+      }
+      bw_use <- min(bw, nrow(id_subsample))
+      id_subsample <- id_subsample[seq_len(bw_use), , drop = FALSE]
       id_subsample <- as.data.frame(id_subsample)
       colnames(id_subsample) <- "id"
       id_subsample <- dplyr::mutate(id_subsample, flag = 1)
@@ -67,6 +76,7 @@ AIC_A <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, kernel
       subsample$wgt <- as.vector(weight)
       Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                      stringsAsFactors = FALSE)
+      wgt <- Psubsample$wgt
       plm_subsample <- plm::plm(formula=formula, model=model, data=Psubsample,
                                 effect = effect, index=index, weights = wgt,
                                 random.method = random.method)
@@ -96,14 +106,14 @@ AIC_A <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, kernel
       }
       if (model == "pooling")
       {
-        X_trans <- (dplyr::select(X, -"id"))
+        X_trans <- dplyr::select(X, -dplyr::all_of("id"))
       }
       else
       {
         X_mean <- stats::aggregate(X[,indep_varibale_name_in_equation], by = list(X[,'id']), mean)
         colnames(X_mean)[1] <- "id"
         X_mean <- dplyr::left_join(dplyr::select(X, "id"), X_mean, by = "id")
-        X_trans <- (dplyr::select(X, -"id")) - (dplyr::select(X_mean, -"id")) * theta
+        X_trans <- dplyr::select(X, -dplyr::all_of("id")) - dplyr::select(X_mean, -dplyr::all_of("id")) * theta
       }
       X_trans <- as.matrix(X_trans)
       W <- as.vector(Psubsample$wgt)
@@ -118,11 +128,11 @@ AIC_A <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, kernel
       }
       else
       {
-        sub_tr_hatmat.aim <- Inf
-        sub_resid.aim <- Inf
+        sub_tr_hatmat.aim <- rep(Inf, aim_number)
+        sub_resid.aim <- rep(Inf, aim_number)
       }
-      residualsVector <- append(residualsVector, sub_resid.aim)
-      tr_hatmatVector <- append(tr_hatmatVector, sub_tr_hatmat.aim)
+      residualsVector[idx] <- sub_resid.aim
+      tr_hatmatVector[idx] <- sub_tr_hatmat.aim
       ### 0.2.0
 
       ### 0.1.1
@@ -152,7 +162,8 @@ AIC_A <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, kernel
     ### 0.2.0
     n <- nrow(data_input)
     tr_hatmat <- sum(tr_hatmatVector)
-    AICscore <- 2*n*log(sd(residualsVector)) + n*log(2*pi) +  n * (tr_hatmat + n) / (n - 2 - tr_hatmat)
+    sigma <- sqrt(sum(residualsVector^2) / n)
+    AICscore <- 2*n*log(sigma) + n*log(2*pi) +  n * (tr_hatmat + n) / (n - 2 - tr_hatmat)
     cat("Adaptive Bandwidth:", bw, "AIC score:", AICscore, "\n")
     ### 0.2.0
     return(AICscore)

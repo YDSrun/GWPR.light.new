@@ -40,7 +40,7 @@
 #' @noRd
 gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
                    model, index, kernel = "bisquare", effect = "individual",
-                   random.method = "swar", huge_data_size = huge_data_size)
+                   random.method = "swar", huge_data_size = FALSE)
 {
   GW.arguments <- list(formula = formula, individual.number = nrow(ID_list), bw = bw,
                        kernel = kernel, adaptive = adaptive, p = p, longlat = longlat)
@@ -48,60 +48,11 @@ gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
           "Formula: ", paste(as.character(formula)[2], " = ", as.character(formula)[3]), " -- Individuals: ", nrow(ID_list), "\n",
           "Bandwidth: ", bw, " ---- ", "Adaptive: ", adaptive, "\n",
           "Model: ", model, " ---- ", "Effect: ", effect, "\n")
-  global_plm <- plm::plm(formula=formula, model=model, data=data,
+  global_plm_data <- plm::pdata.frame(data, index = index, drop.index = FALSE, row.names = FALSE,
+                                      stringsAsFactors = FALSE)
+  global_plm <- plm::plm(formula=formula, model=model, data=global_plm_data,
                          effect = effect, index=index, random.method = random.method)
   ID_list_single <- as.vector(ID_list[[1]])
-  output_result <- data.frame(Doubles = double())
-  y_yhat_resid <- data.frame(Doubles = double())
-  loop_times <- 1
-  wgt = 0
-  for (ID_individual in ID_list_single)
-  {
-    data$aim[data$id == ID_individual] <- 1
-    data$aim[data$id != ID_individual] <- 0
-    subsample <- data
-    subsample <- subsample[order(-subsample$aim),]
-    dp_locat_subsample <- dplyr::select(subsample, 'X', 'Y')
-    dp_locat_subsample <- as.matrix(dp_locat_subsample)
-    dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
-                             focus = 1, p=p, longlat=longlat)
-    subsample$dist <- as.vector(dMat)
-    subsample <- subsample[order(subsample$dist),]
-    id_subsample <- dplyr::select(subsample, "id")
-    id_subsample <- id_subsample[!duplicated(id_subsample$id),]
-    id_subsample <- as.data.frame(id_subsample)
-    id_subsample <- id_subsample[1:bw,]
-    id_subsample <- as.data.frame(id_subsample)
-    colnames(id_subsample) <- "id"
-    id_subsample <- dplyr::mutate(id_subsample, flag = 1)
-    subsample <- dplyr::inner_join(subsample, id_subsample, by = "id")
-    bw_of_total <- nrow(subsample)
-    weight <- GWmodel::gw.weight(as.numeric(subsample$dist), bw=bw_of_total, kernel=kernel, adaptive=adaptive)
-    subsample$wgt <- as.vector(weight)
-    Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
-                                   stringsAsFactors = FALSE)
-    plm_subsample <- plm::plm(formula=formula, model=model, data=Psubsample,
-                              effect = effect, index=index, weights = wgt,
-                              random.method = random.method)
-    coefMat <- lmtest::coeftest(plm_subsample)
-    local_r2 <- plm::r.squared(plm_subsample)
-    result_line <- c(ID_individual, coefMat[,1], coefMat[,2], coefMat[,3], local_r2)
-    output_result <- rbind(output_result, result_line)
-    dataset_add_resid <- cbind(Psubsample, plm_subsample$residuals)
-    dataset_add_resid <- as.data.frame(dataset_add_resid)
-    varibale_name_in_equation <- all.vars(formula)
-    dataset_add_resid <- dplyr::select(dataset_add_resid, dplyr::all_of(index), dplyr::all_of(varibale_name_in_equation)[1],
-                                       "plm_subsample$residuals")
-    colnames(dataset_add_resid) <- c(index, "y", "resid")
-    dataset_add_resid$yhat <- dataset_add_resid$y - dataset_add_resid$resid
-    dataset_add_resid <- dplyr::filter(dataset_add_resid, id == ID_individual)
-    y_yhat_resid <- rbind(y_yhat_resid, dataset_add_resid)
-    if (huge_data_size == T)
-    {
-      progress_bar(loop_times = loop_times, nrow(ID_list))
-      loop_times <- loop_times + 1
-    }
-  }
   varibale_name_in_equation <- all.vars(formula)
   if (model == "within")
   {
@@ -112,12 +63,102 @@ gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
     varibale_name_in_equation_out <- varibale_name_in_equation
     varibale_name_in_equation_out[1] <- "Intercept"
   }
+  coef_count <- length(varibale_name_in_equation_out)
+  output_rows <- vector("list", length(ID_list_single))
+  resid_rows <- vector("list", length(ID_list_single))
+  failed_ids <- c()
+  loop_times <- 1
+  for (i in seq_along(ID_list_single))
+  {
+    ID_individual <- ID_list_single[i]
+    data$aim[data$id == ID_individual] <- 1
+    data$aim[data$id != ID_individual] <- 0
+    subsample <- data
+    subsample <- subsample[order(-subsample$aim),]
+    dp_locat_subsample <- dplyr::select(subsample, dplyr::all_of(c("X", "Y")))
+    dp_locat_subsample <- as.matrix(dp_locat_subsample)
+    dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
+                             focus = 1, p=p, longlat=longlat)
+    subsample$dist <- as.vector(dMat)
+    subsample <- subsample[order(subsample$dist),]
+    id_subsample <- dplyr::select(subsample, "id")
+    id_subsample <- id_subsample[!duplicated(id_subsample$id),]
+    id_subsample <- as.data.frame(id_subsample)
+    if (nrow(id_subsample) < 1)
+    {
+      stop("No available individuals for bandwidth selection.")
+    }
+    bw_use <- min(bw, nrow(id_subsample))
+    id_subsample <- id_subsample[seq_len(bw_use), , drop = FALSE]
+    id_subsample <- as.data.frame(id_subsample)
+    colnames(id_subsample) <- "id"
+    id_subsample <- dplyr::mutate(id_subsample, flag = 1)
+    subsample <- dplyr::inner_join(subsample, id_subsample, by = "id")
+    bw_of_total <- nrow(subsample)
+    weight <- GWmodel::gw.weight(as.numeric(subsample$dist), bw=bw_of_total, kernel=kernel, adaptive=adaptive)
+    subsample$wgt <- as.vector(weight)
+    Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
+                                   stringsAsFactors = FALSE)
+    wgt <- Psubsample$wgt
+    plm_subsample <- tryCatch(
+      plm::plm(formula=formula, model=model, data=Psubsample,
+               effect = effect, index=index, weights = wgt,
+               random.method = random.method),
+      error = function(e) e
+    )
+    if(!inherits(plm_subsample, "error"))
+    {
+      coefMat <- lmtest::coeftest(plm_subsample)
+      local_r2 <- plm::r.squared(plm_subsample)
+      result_line <- c(ID_individual, coefMat[,1], coefMat[,2], coefMat[,3], local_r2)
+      output_rows[[i]] <- result_line
+      dataset_add_resid <- cbind(Psubsample, plm_subsample$residuals)
+      dataset_add_resid <- as.data.frame(dataset_add_resid)
+      dataset_add_resid <- dplyr::select(dataset_add_resid, dplyr::all_of(index), dplyr::all_of(varibale_name_in_equation)[1],
+                                         "plm_subsample$residuals")
+      colnames(dataset_add_resid) <- c(index, "y", "resid")
+      dataset_add_resid$yhat <- dataset_add_resid$y - dataset_add_resid$resid
+      dataset_add_resid <- dplyr::filter(dataset_add_resid, id == ID_individual)
+      resid_rows[[i]] <- dataset_add_resid
+    }
+    else
+    {
+      result_line <- c(ID_individual, rep(NA_real_, coef_count * 3 + 1))
+      output_rows[[i]] <- result_line
+      dataset_add_resid <- dplyr::select(Psubsample, dplyr::all_of(index), dplyr::all_of(varibale_name_in_equation)[1])
+      dataset_add_resid <- as.data.frame(dataset_add_resid)
+      colnames(dataset_add_resid) <- c(index, "y")
+      dataset_add_resid$resid <- NA_real_
+      dataset_add_resid$yhat <- NA_real_
+      dataset_add_resid <- dplyr::filter(dataset_add_resid, id == ID_individual)
+      resid_rows[[i]] <- dataset_add_resid
+      failed_ids <- c(failed_ids, ID_individual)
+    }
+    if (huge_data_size == T)
+    {
+      progress_bar(loop_times = loop_times, nrow(ID_list))
+      loop_times <- loop_times + 1
+    }
+  }
+  output_result <- as.data.frame(do.call(rbind, output_rows))
+  y_yhat_resid <- do.call(rbind, resid_rows)
   colnames(output_result) <- c("id", varibale_name_in_equation_out, paste0(varibale_name_in_equation_out,"_SE"),
                                paste0(varibale_name_in_equation_out,"_TVa"), "Local_R2")
   SDF <- sp::merge(SDF, output_result, by = "id")
   y_yhat_resid[,1] <- as.numeric(as.character(y_yhat_resid[,1]))
   y_yhat_resid[,2] <- as.numeric(as.character(y_yhat_resid[,2]))
-  r2 <- 1 - sum(y_yhat_resid$resid^2)/(sum((y_yhat_resid$y - mean(y_yhat_resid$y))^2))
+  if(length(failed_ids) > 0)
+  {
+    warning("Some local regressions failed; coefficients and residuals contain NA.", call. = FALSE)
+  }
+  if(anyNA(y_yhat_resid$resid) || anyNA(y_yhat_resid$y))
+  {
+    r2 <- NA_real_
+  }
+  else
+  {
+    r2 <- 1 - sum(y_yhat_resid$resid^2)/(sum((y_yhat_resid$y - mean(y_yhat_resid$y))^2))
+  }
   result_list <- list(GW.arguments = GW.arguments, R2 = r2, index = index, plm.result = global_plm,
                       raw.data = data, GWPR.residuals = y_yhat_resid, SDF = SDF)
   return(result_list)
