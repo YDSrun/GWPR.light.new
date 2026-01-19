@@ -56,7 +56,8 @@ formula.GWPR <- pm25 ~ co2_mean + Developed_Open_Space_perc + Developed_Low_Inte
    Shrub_perc + Grassland_perc + Pasture_perc + Cultivated_Crops_perc +
    pop_density + summer_tmmx + winter_tmmx + summer_rmax + winter_rmax
 
-pdata <- plm::pdata.frame(TransAirPolCalif, index = c("GEOID", "year"))
+pdata <- plm::pdata.frame(TransAirPolCalif, index = c("GEOID", "year"),
+                          stringsAsFactors = FALSE)
 moran.plm.model <- plm::plm(formula = formula.GWPR, data = pdata, model = "within")
 summary(moran.plm.model)
 

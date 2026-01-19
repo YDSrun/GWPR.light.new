@@ -31,6 +31,7 @@ As we have mentioned that, sometimes, the residuals cluster spatially, but the w
 library(GWPR.light)
 library(sp)
 library(tmap)
+library(sf)
 data("California")
 data("TransAirPolCalif")
 formula.GWPR <- pm25 ~ co2_mean + Developed_Open_Space_perc + Developed_Low_Intensity_perc +
@@ -50,7 +51,8 @@ head(resid.lm)
 ```
 ```{r cross_sectional_residual, fig.align='center', out.height= '80%', out.width='80%'}
 to_show <- sp::merge(California, resid.lm, by = "GEOID")
-tm_shape(to_show) + tm_polygons(col = 'resid')
+to_show_sf <- sf::st_as_sf(to_show)
+tm_shape(to_show_sf) + tm_polygons(col = 'resid')
 ```
   
 <strong>Note:</strong> This is just an example about the residuals spatially clustering. Maybe, not so clear to convince you, so we need use Moran's I test to statistically confirm this situation. We will discuss that part in the Function section. 
@@ -130,7 +132,7 @@ Unfortunately, the authors of this package still have statistic concern about Ha
 
 ## 2.2 GWPR.moran.test(): are the residuals really clustering
 ```{r, fig.align='center', out.height= '80%', out.width='80%'}
-tm_shape(to_show) +
+tm_shape(to_show_sf) +
   tm_polygons(col = 'resid')
 ```
 
@@ -147,7 +149,7 @@ $$\frac{\bar{I}}{V} \sim N(0,1)$$
 Let us try, using the "GWPR.light::GWPR.moran.test()"
 ```{r}
 data(TransAirPolCalif)
-pdata <- plm::pdata.frame(TransAirPolCalif, index = c("GEOID", "year"))
+pdata <- plm::pdata.frame(TransAirPolCalif, index = c("GEOID", "year"), stringsAsFactors = FALSE)
 moran.plm.model <- plm::plm(formula = formula.GWPR, data = pdata, model = "within")
 summary(moran.plm.model)
 ```
@@ -175,7 +177,7 @@ We give several examples here.
 GWPR.pFtest.resu.F <- GWPR.pFtest(formula = formula.GWPR, data = TransAirPolCalif, index = c("GEOID", "year"),
                                   SDF = California, bw = bw.AIC.F, adaptive = F, p = 2, effect = "individual",
                                   kernel = "bisquare", longlat = F)
-tm_shape(GWPR.pFtest.resu.F$SDF) +
+tm_shape(sf::st_as_sf(GWPR.pFtest.resu.F$SDF)) +
      tm_polygons(col = "p.value", breaks = c(0, 0.05, 1))
 ```
 
@@ -186,7 +188,7 @@ If the p-value is lower than the specific level (0.01, 0.05, etc.), significant 
 GWPR.plmtest.resu.F <- GWPR.plmtest(formula = formula.GWPR, data = TransAirPolCalif, index = c("GEOID", "year"),
                                     SDF = California, bw = bw.AIC.F, adaptive = F, p = 2,
                                     kernel = "bisquare", longlat = F)
-tm_shape(GWPR.plmtest.resu.F$SDF) +
+tm_shape(sf::st_as_sf(GWPR.plmtest.resu.F$SDF)) +
      tm_polygons(col = "p.value", breaks = c(0, 0.05, 1))
 ```
 
@@ -197,7 +199,7 @@ If the p-value is lower than the specific level (0.01, 0.05, etc.), significant 
 GWPR.phtest.resu.F <- GWPR.phtest(formula = formula.GWPR, data = TransAirPolCalif, index = c("GEOID", "year"),
                                   SDF = California, bw = bw.AIC.F, adaptive = F, p = 2, effect = "individual",
                                   kernel = "bisquare", longlat = F, random.method = "amemiya")
-tm_shape(GWPR.phtest.resu.F$SDF) +
+tm_shape(sf::st_as_sf(GWPR.phtest.resu.F$SDF)) +
      tm_polygons(col = "p.value", breaks = c(0, 0.05, 1))
 ```
 
@@ -246,7 +248,7 @@ result.F.AIC <- GWPR(bw = bw.AIC.F, formula = formula.GWPR, data = TransAirPolCa
                      SDF = California, adaptive = F, p = 2, effect = "individual", model = "within",
                      kernel = "bisquare", longlat = F)
 summary(result.F.AIC$SDF$Local_R2)
-tm_shape(result.F.AIC$SDF) +
+tm_shape(sf::st_as_sf(result.F.AIC$SDF)) +
   tm_polygons(col = "Local_R2", pal = "Reds",auto.palette.mapping = F,
               style = 'cont')
 ```
