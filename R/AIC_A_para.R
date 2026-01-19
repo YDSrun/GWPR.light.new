@@ -35,7 +35,7 @@ AIC_A_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
 {
   ID_list_single <- as.vector(ID_list[[1]])
   ID_individual <- 0
-  wgt <- 0
+
   cl <- parallel::makeCluster(cluster.number)
   doParallel::registerDoParallel(cl)
   result_list <- foreach::foreach(ID_individual = ID_list_single, .combine = rbind) %dopar%
@@ -47,7 +47,7 @@ AIC_A_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
     aim_number <- sum(subsample$aim)
     ### 0.2.0
     subsample <- subsample[order(-subsample$aim),]
-    dp_locat_subsample <- dplyr::select(subsample, 'X', 'Y')
+    dp_locat_subsample <- dplyr::select(subsample, dplyr::all_of(c("X", "Y")))
     dp_locat_subsample <- as.matrix(dp_locat_subsample)
     dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
                              focus = 1, p=p, longlat=longlat)
@@ -56,7 +56,12 @@ AIC_A_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
     id_subsample <- dplyr::select(subsample, "id")
     id_subsample <- id_subsample[!duplicated(id_subsample$id),]
     id_subsample <- as.data.frame(id_subsample)
-    id_subsample <- id_subsample[1:bw,]
+    if (nrow(id_subsample) < 1)
+    {
+      stop("No available individuals for bandwidth selection.")
+    }
+    bw_use <- min(bw, nrow(id_subsample))
+    id_subsample <- id_subsample[seq_len(bw_use), , drop = FALSE]
     id_subsample <- as.data.frame(id_subsample)
     colnames(id_subsample) <- "id"
     id_subsample <- dplyr::mutate(id_subsample, flag = 1)
@@ -66,6 +71,7 @@ AIC_A_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
     subsample$wgt <- as.vector(weight)
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
+    wgt <- Psubsample$wgt
     plm_subsample <- plm::plm(formula=formula, model=model, data=Psubsample,
                               effect = effect, index=index, weights = wgt,
                               random.method = random.method)
@@ -95,14 +101,14 @@ AIC_A_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
     }
     if (model == "pooling")
     {
-      X_trans <- (dplyr::select(X, -"id"))
+      X_trans <- dplyr::select(X, -dplyr::all_of("id"))
     }
     else
     {
       X_mean <- stats::aggregate(X[,indep_varibale_name_in_equation], by = list(X[,'id']), mean)
       colnames(X_mean)[1] <- "id"
       X_mean <- dplyr::left_join(dplyr::select(X, "id"), X_mean, by = "id")
-      X_trans <- (dplyr::select(X, -"id")) - (dplyr::select(X_mean, -"id")) * theta
+      X_trans <- dplyr::select(X, -dplyr::all_of("id")) - dplyr::select(X_mean, -dplyr::all_of("id")) * theta
     }
     X_trans <- as.matrix(X_trans)
     W <- as.vector(Psubsample$wgt)
@@ -146,7 +152,9 @@ AIC_A_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
   ### 0.2.0
   n <- nrow(data_input)
   tr_hatmat <- sum(result_list[,1])
-  AICscore <- 2*n*log(sd(result_list[,2])) + n*log(2*pi) +  n * (tr_hatmat + n) / (n - 2 - tr_hatmat)
+  residualsVector <- result_list[,2]
+  sigma <- sqrt(sum(residualsVector^2) / n)
+  AICscore <- 2*n*log(sigma) + n*log(2*pi) +  n * (tr_hatmat + n) / (n - 2 - tr_hatmat)
   cat("Adaptive Bandwidth:", bw, "AIC score:", AICscore, "\n")
   ### 0.2.0
   return(AICscore)

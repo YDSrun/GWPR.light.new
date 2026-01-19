@@ -53,7 +53,8 @@
 #'    Shrub_perc + Grassland_perc + Pasture_perc + Cultivated_Crops_perc +
 #'    pop_density + summer_tmmx + winter_tmmx + summer_rmax + winter_rmax
 #'
-#' pdata <- plm::pdata.frame(TransAirPolCalif, index = c("GEOID", "year"))
+#' pdata <- plm::pdata.frame(TransAirPolCalif, index = c("GEOID", "year"),
+#'                           stringsAsFactors = FALSE)
 #' moran.plm.model <- plm::plm(formula = formula.GWPR, data = pdata, model = "within")
 #' summary(moran.plm.model)
 #'
@@ -66,7 +67,7 @@
 GWPR.moran.test <- function(plm_model, SDF, bw, adaptive = FALSE, p = 2, kernel = "bisquare",
                              longlat = FALSE, alternative = "greater")
 {
-  if(class(plm_model)[1] != "plm")
+  if(!inherits(plm_model, "plm"))
   {
     stop("This test only accepts the object \"plm\".")
   }
@@ -95,7 +96,7 @@ GWPR.moran.test <- function(plm_model, SDF, bw, adaptive = FALSE, p = 2, kernel 
   coord <- cbind(as.data.frame(dp.locat), dplyr::select(SDF@data, dplyr::all_of((colnames(plm::index(plm_model$model))[1]))) )
   colnames(coord) <- c("X", "Y", "id")
   coord <- dplyr::arrange(coord, "id")
-  dp.locat <- as.matrix(dplyr::select(coord, "X", "Y"))
+  dp.locat <- as.matrix(dplyr::select(coord, dplyr::all_of(c("X", "Y"))))
   dMat <- GWmodel::gw.dist(dp.locat = dp.locat, rp.locat = dp.locat,
                            focus = 0, p = p, longlat=longlat)
   if(adaptive)
@@ -106,28 +107,11 @@ GWPR.moran.test <- function(plm_model, SDF, bw, adaptive = FALSE, p = 2, kernel 
   diag(weight) <- 0
   weight <- weight/rowSums(weight)
 
-  I.vector <- c()
-  loop_time <- 1
-  while(loop_time < (ncol(plm.resid)+1) )
-  {
-    plm.resid.single <- plm.resid[,loop_time]
-    sum.weight.residuals <- 0
-    i <- 1
-    j <- 1
-    while(i < (length(plm.resid.single)+1))
-    {
-      while(j < (length(plm.resid.single)+1))
-      {
-        sum.weight.residuals <- sum.weight.residuals + weight[i,j]*plm.resid.single[i]*plm.resid.single[j]
-        j <- j + 1
-      }
-      i <- i + 1
-    }
-    sum.residuals <- sum(plm.resid.single^2)
-    I <- sum.weight.residuals/sum.residuals
-    I.vector <- append(I.vector, I)
-    loop_time <- loop_time + 1
-  }
+  resid_mat <- as.matrix(plm.resid)
+  weighted_resid <- weight %*% resid_mat
+  sum.weight.residuals <- colSums(resid_mat * weighted_resid)
+  sum.residuals <- colSums(resid_mat^2)
+  I.vector <- sum.weight.residuals / sum.residuals
   I.mean <- mean(I.vector)
 
   # V2 of average I

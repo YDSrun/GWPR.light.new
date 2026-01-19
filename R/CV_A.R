@@ -28,18 +28,18 @@ CV_A <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
                  model, index, effect,
                  random.method, huge_data_size)
 {
-  CVscore_vector <- c()
   ID_list_single <- as.vector(ID_list[[1]])
+  CVscore_vector <- numeric(length(ID_list_single))
   loop_times <- 1
-  wgt <- 0
   varibale_name_in_equation <- all.vars(formula)
-  for (ID_individual in ID_list_single)
+  for (i in seq_along(ID_list_single))
   {
+    ID_individual <- ID_list_single[i]
     data$aim[data$id == ID_individual] <- 1
     data$aim[data$id != ID_individual] <- 0
     subsample <- data
     subsample <- subsample[order(-subsample$aim),]
-    dp_locat_subsample <- dplyr::select(subsample, 'X', 'Y')
+    dp_locat_subsample <- dplyr::select(subsample, dplyr::all_of(c("X", "Y")))
     dp_locat_subsample <- as.matrix(dp_locat_subsample)
     dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
                              focus = 1, p=p, longlat=longlat)
@@ -48,7 +48,12 @@ CV_A <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
     id_subsample <- dplyr::select(subsample, "id")
     id_subsample <- id_subsample[!duplicated(id_subsample$id),]
     id_subsample <- as.data.frame(id_subsample)
-    id_subsample <- id_subsample[1:bw,]
+    if (nrow(id_subsample) < 1)
+    {
+      stop("No available individuals for bandwidth selection.")
+    }
+    bw_use <- min(bw, nrow(id_subsample))
+    id_subsample <- id_subsample[seq_len(bw_use), , drop = FALSE]
     id_subsample <- as.data.frame(id_subsample)
     colnames(id_subsample) <- "id"
     id_subsample$flag <- 1
@@ -58,12 +63,13 @@ CV_A <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
     subsample$wgt <- as.vector(weight)
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
+    wgt <- Psubsample$wgt
     plm_subsample <- plm::plm(formula=formula, model=model, data=Psubsample,
                               effect = effect, index=index, weights = wgt,
                               random.method = random.method)
     CVscore <- nrow(subsample) * sum(plm_subsample$residuals^2) /
       (nrow(subsample) - length(varibale_name_in_equation) + 1)^2
-    CVscore_vector <- append(CVscore_vector, CVscore)
+    CVscore_vector[i] <- CVscore
     if (huge_data_size == T)
     {
       progress_bar(loop_times = loop_times, nrow(ID_list))

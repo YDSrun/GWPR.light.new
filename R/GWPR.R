@@ -61,10 +61,14 @@
 #'                      p = 2, effect = "individual", model = "within",
 #'                      kernel = "bisquare", longlat = FALSE)
 #' summary(result.F.AIC$SDF$Local_R2)
-#' library(tmap)
-#' tm_shape(result.F.AIC$SDF) +
-#' tm_polygons(col = "Local_R2", pal = "Reds",auto.palette.mapping = FALSE,
-#'             style = 'cont')
+#' if (requireNamespace("tmap", quietly = TRUE) && requireNamespace("sf", quietly = TRUE)) {
+#'   sdf_sf <- sf::st_as_sf(result.F.AIC$SDF)
+#'   if (utils::packageVersion("tmap") >= "4.0") {
+#'     tmap::tm_shape(sdf_sf) + tmap::tm_polygons(fill = "Local_R2")
+#'   } else {
+#'     tmap::tm_shape(sdf_sf) + tmap::tm_polygons(col = "Local_R2", pal = "Reds", style = "cont")
+#'   }
+#' }
 GWPR <- function(formula, data, index, SDF, bw = NULL, adaptive = FALSE, p = 2,
                  effect = "individual", model = c("pooling", "within", "random"), random.method = "swar",
                  kernel = "bisquare", longlat = FALSE)
@@ -97,7 +101,7 @@ GWPR <- function(formula, data, index, SDF, bw = NULL, adaptive = FALSE, p = 2,
   ##### 22.6.17 we change this, it is the problem on linux
   data$raw_order_data <- 1:nrow(data)
   raw_id <- index[1]
-  colnames(data)[1] <- "id"
+  names(data)[names(data) == index[1]] <- "id"
   index[1] <- "id"
 
   # Assuming unbalanced panel, get individuals' ID and max record number of individuals
@@ -125,10 +129,12 @@ GWPR <- function(formula, data, index, SDF, bw = NULL, adaptive = FALSE, p = 2,
   }
 
   # Panel SDF preparation
-  SDF@data <- dplyr::select(SDF@data, dplyr::all_of(raw_id))
-  colnames(SDF@data)[1] <- "id"
-  dp.locat <- sp::coordinates(SDF)
-  coord <- cbind(as.data.frame(dp.locat), SDF@data$id)
+  sdf_data <- SDF@data
+  sdf_data$id <- sdf_data[[raw_id]]
+  SDF_work <- SDF
+  SDF_work@data <- sdf_data
+  dp.locat <- sp::coordinates(SDF_work)
+  coord <- cbind(as.data.frame(dp.locat), sdf_data$id)
   colnames(coord) <- c("X", "Y", "id")
   data <- dplyr::left_join(data, coord, by = "id")
 
@@ -142,14 +148,14 @@ GWPR <- function(formula, data, index, SDF, bw = NULL, adaptive = FALSE, p = 2,
   # GWPRegression
   if (adaptive)
   {
-    result <- gwpr_A(bw = bw, data = lvl1_data, SDF, ID_list = ID_num,
+    result <- gwpr_A(bw = bw, data = lvl1_data, SDF_work, ID_list = ID_num,
                      formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                      model = model, index = index, kernel = kernel, effect = effect,
                      random.method = random.method, huge_data_size = huge_data_size)
   }
   else
   {
-    result <- gwpr_F(bw = bw, data = lvl1_data, SDF, ID_list = ID_num,
+    result <- gwpr_F(bw = bw, data = lvl1_data, SDF_work, ID_list = ID_num,
                      formula = formula, p = p, longlat = longlat, adaptive = adaptive,
                      model = model, index = index, kernel = kernel, effect = effect,
                      random.method = random.method, huge_data_size = huge_data_size)

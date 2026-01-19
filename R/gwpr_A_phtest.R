@@ -47,14 +47,14 @@ gwpr_A_phtest <- function(bw = bw, data, index, SDF, ID_list, random.method = ra
   ID_list_single <- as.vector(ID_list[[1]])
   output_result <- data.frame(Doubles = double(), Characters = character())
   loop_times <- 1
-  wgt <- 0
+
   for (ID_individual in ID_list_single)
   {
     data$aim[data$id == ID_individual] <- 1
     data$aim[data$id != ID_individual] <- 0
     subsample <- data
     subsample <- subsample[order(-subsample$aim),]
-    dp_locat_subsample <- dplyr::select(subsample, 'X', 'Y')
+    dp_locat_subsample <- dplyr::select(subsample, dplyr::all_of(c("X", "Y")))
     dp_locat_subsample <- as.matrix(dp_locat_subsample)
     dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
                              focus = 1, p=p, longlat=longlat)
@@ -75,8 +75,10 @@ gwpr_A_phtest <- function(bw = bw, data, index, SDF, ID_list, random.method = ra
     subsample <- subsample[(subsample$wgt > 0),]
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
+    wgt <- Psubsample$wgt
     plm_subsample_fem <- plm::plm(formula=formula, model="within", data=Psubsample,
                                   effect = effect, index=index, weights = wgt)
+    wgt <- Psubsample$wgt
     plm_subsample_rem <- plm::plm(formula=formula, model="random", data=Psubsample, random.method = random.method,
                                   effect = effect, index=index, weights = wgt)
     test <- plm::phtest(plm_subsample_fem, plm_subsample_rem)
