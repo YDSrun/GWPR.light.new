@@ -259,11 +259,10 @@ Look, the $R^2$ is 0.8969606, while the panel liner regression is 0.48772. BAM!!
 Thank for your cooperation, we are going to write an article about this package. After it is publsihed, we will update the reference of all. If you could cite our article we would really appreciate.
 
 ## Archive in GitHub:
-https://github.com/MichaelChaoLi-cpu/GWPR.light
-
+https://github.com/YDSrun/GWPR.light.new
 ## BugReports: 
 If you find bugs or have other ideas, be free to contact us.
-https://github.com/MichaelChaoLi-cpu/GWPR.light/issues
+https://github.com/YDSrun/GWPR.light.new/issues
   
 
 # Reference
