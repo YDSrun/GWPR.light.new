@@ -81,6 +81,7 @@ gwpr_A_pFtest <- function(bw = bw, data, SDF, index, ID_list, formula = formula,
     subsample <- subsample[(subsample$wgt > 0),]
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
+    wgt <- Psubsample$wgt
     plm_subsample_fem <- plm::plm(formula=formula, model="within", data=Psubsample,
                                   effect = effect, index=index, weights = wgt)
     plm_subsample_ols <- plm::plm(formula=formula, model="pooling", data=Psubsample,

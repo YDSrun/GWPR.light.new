@@ -96,6 +96,7 @@ gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
     subsample$wgt <- as.vector(weight)
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
+    wgt <- Psubsample$wgt
     plm_subsample <- tryCatch(
       plm::plm(formula=formula, model=model, data=Psubsample,
                effect = effect, index=index, weights = wgt,
