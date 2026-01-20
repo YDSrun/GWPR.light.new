@@ -32,7 +32,6 @@ Depends:
 Suggests: 
     rmarkdown,
     knitr,
-    rgeos,
     sf,
     tmap
 VignetteBuilder: knitr

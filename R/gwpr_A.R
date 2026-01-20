@@ -109,8 +109,20 @@ gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
     if(!inherits(plm_subsample, "error"))
     {
       coefMat <- lmtest::coeftest(plm_subsample)
+      rn <- rownames(coefMat)
+      rn <- gsub("^\\(Intercept\\)$", "Intercept", rn)
+      coef_hat <- rep(NA_real_, coef_count); names(coef_hat) <- varibale_name_in_equation_out
+      coef_se  <- rep(NA_real_, coef_count); names(coef_se)  <- varibale_name_in_equation_out
+      coef_t   <- rep(NA_real_, coef_count); names(coef_t)   <- varibale_name_in_equation_out
+      matched <- intersect(varibale_name_in_equation_out, rn)
+      if (length(matched) > 0)
+      {
+        coef_hat[matched] <- coefMat[matched, 1]
+        coef_se[matched]  <- coefMat[matched, 2]
+        coef_t[matched]   <- coefMat[matched, 3]
+      }
       local_r2 <- plm::r.squared(plm_subsample)
-      result_line <- c(ID_individual, coefMat[,1], coefMat[,2], coefMat[,3], local_r2)
+      result_line <- c(ID_individual, coef_hat, coef_se, coef_t, local_r2)
       output_rows[[i]] <- result_line
       dataset_add_resid <- cbind(Psubsample, plm_subsample$residuals)
       dataset_add_resid <- as.data.frame(dataset_add_resid)
