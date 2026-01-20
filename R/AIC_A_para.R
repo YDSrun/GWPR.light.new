@@ -38,7 +38,11 @@ AIC_A_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
 
   cl <- parallel::makeCluster(cluster.number)
   doParallel::registerDoParallel(cl)
-  result_list <- foreach::foreach(ID_individual = ID_list_single, .combine = rbind) %dopar%
+  result_list <- foreach::foreach(
+    ID_individual = ID_list_single,
+    .combine = rbind,
+    .packages = c("dplyr", "GWmodel", "plm")
+  ) %dopar%
   {
     subsample <- data_input
     subsample$aim[subsample$id == ID_individual] <- 1

@@ -38,7 +38,11 @@ AIC_F_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
 
   cl <- parallel::makeCluster(cluster.number)
   doParallel::registerDoParallel(cl)
-  result_list <- foreach(ID_individual = ID_list_single, .combine = rbind) %dopar%
+  result_list <- foreach::foreach(
+    ID_individual = ID_list_single,
+    .combine = rbind,
+    .packages = c("dplyr", "GWmodel", "plm")
+  ) %dopar%
   {
     data_input$aim[data_input$id == ID_individual] <- 1
     data_input$aim[data_input$id != ID_individual] <- 0
@@ -49,8 +53,6 @@ AIC_F_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
     subsample <- subsample[order(-subsample$aim),]
     dp_locat_subsample <- dplyr::select(subsample, dplyr::all_of(c("X", "Y")))
     dp_locat_subsample <- as.matrix(dp_locat_subsample)
-    dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
-                             focus = 1, p=p, longlat=longlat)
     dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
                              focus = 1, p=p, longlat=longlat)
     weight <- GWmodel::gw.weight(as.numeric(dMat), bw=bw, kernel=kernel, adaptive=adaptive)

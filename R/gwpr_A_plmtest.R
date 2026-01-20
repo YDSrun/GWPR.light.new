@@ -41,11 +41,12 @@ gwpr_A_plmtest <- function(bw = bw, data, SDF, index, ID_list,
           "Model: Pooling"," ---- ", "\n",
           "If the p-value is lower than the specific level (0.01, 0.05, etc.), significant effects exist.\n")
   ID_list_single <- as.vector(ID_list[[1]])
-  output_result <- data.frame(Doubles = double(), Characters = character())
+  output_rows <- vector("list", length(ID_list_single))
   loop_times <- 1
 
-  for (ID_individual in ID_list_single)
+  for (i in seq_along(ID_list_single))
   {
+    ID_individual <- ID_list_single[i]
     data$aim[data$id == ID_individual] <- 1
     data$aim[data$id != ID_individual] <- 0
     subsample <- data
@@ -59,10 +60,15 @@ gwpr_A_plmtest <- function(bw = bw, data, SDF, index, ID_list,
     in_subsample_id <- dplyr::select(subsample, index[1])
     in_subsample_id <- dplyr::distinct(in_subsample_id)
     in_subsample_id$yes <- 1
-    in_subsample_id <- in_subsample_id[1:bw, ]
+    bw_use <- min(bw, nrow(in_subsample_id))
+    if (bw_use < 1)
+    {
+      stop("No available individuals for bandwidth selection.")
+    }
+    in_subsample_id <- in_subsample_id[seq_len(bw_use), , drop = FALSE]
     bw_panel <- dplyr::left_join(ID_list, in_subsample_id, by = index[1])
     bw_panel$usingCount <- bw_panel$Count * bw_panel$yes
-    bw_panel <- sum(bw_panel$usingCount, na.rm = T)
+    bw_panel <- sum(bw_panel$usingCount, na.rm = TRUE)
     weight <- GWmodel::gw.weight(as.numeric(dMat), bw=bw_panel, kernel=kernel, adaptive=adaptive)
     ### the "GWmodel::gw.weight" return a vector, so in subsample$wgt <- weight[,1]
     ### the [,1] is unnecessary 22.06.21
@@ -75,15 +81,20 @@ gwpr_A_plmtest <- function(bw = bw, data, SDF, index, ID_list,
     plm_subsample_ols <- plm::plm(formula=formula, model="pooling", data=Psubsample,
                                   index=index, weights = wgt)
     test <- plm::plmtest(plm_subsample_ols, type=c("bp"))
-    result_line <- c(ID_individual, test$statistic, test$p.value, test$parameter)
-    output_result <- rbind(output_result, result_line)
-    if (huge_data_size == T)
+    output_rows[[i]] <- data.frame(
+      id = ID_individual,
+      statistic = as.numeric(test$statistic),
+      p.value = as.numeric(test$p.value),
+      df = as.numeric(test$parameter),
+      stringsAsFactors = FALSE
+    )
+    if (huge_data_size)
     {
       progress_bar(loop_times = loop_times, nrow(ID_list))
       loop_times <- loop_times + 1
     }
   }
-  colnames(output_result) <- c("id", "statistic", "p.value", "df")
+  output_result <- do.call(rbind, output_rows)
   SDF <- sp::merge(SDF, output_result, by = "id")
   result_list <- list(GW.arguments = GW.arguments, SDF = SDF)
   return(result_list)

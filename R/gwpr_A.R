@@ -54,15 +54,12 @@ gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
                          effect = effect, index=index, random.method = random.method)
   ID_list_single <- as.vector(ID_list[[1]])
   varibale_name_in_equation <- all.vars(formula)
+  coef_names <- colnames(stats::model.matrix(formula, data = data))
   if (model == "within")
   {
-    varibale_name_in_equation_out <- varibale_name_in_equation[2:length(varibale_name_in_equation)]
+    coef_names <- coef_names[coef_names != "(Intercept)"]
   }
-  else
-  {
-    varibale_name_in_equation_out <- varibale_name_in_equation
-    varibale_name_in_equation_out[1] <- "Intercept"
-  }
+  varibale_name_in_equation_out <- gsub("^\\(Intercept\\)$", "Intercept", coef_names)
   coef_count <- length(varibale_name_in_equation_out)
   output_rows <- vector("list", length(ID_list_single))
   resid_rows <- vector("list", length(ID_list_single))
@@ -109,8 +106,22 @@ gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
     if(!inherits(plm_subsample, "error"))
     {
       coefMat <- lmtest::coeftest(plm_subsample)
+      rn_orig <- rownames(coefMat)
+      rn_norm <- gsub("^\\(Intercept\\)$", "Intercept", rn_orig)
+      coef_hat <- rep(NA_real_, coef_count); names(coef_hat) <- varibale_name_in_equation_out
+      coef_se  <- rep(NA_real_, coef_count); names(coef_se)  <- varibale_name_in_equation_out
+      coef_t   <- rep(NA_real_, coef_count); names(coef_t)   <- varibale_name_in_equation_out
+      idx <- match(varibale_name_in_equation_out, rn_norm, nomatch = 0)
+      fill_pos <- which(idx > 0)
+      if (length(fill_pos) > 0)
+      {
+        src <- idx[fill_pos]
+        coef_hat[fill_pos] <- coefMat[src, 1]
+        coef_se[fill_pos]  <- coefMat[src, 2]
+        coef_t[fill_pos]   <- coefMat[src, 3]
+      }
       local_r2 <- plm::r.squared(plm_subsample)
-      result_line <- c(ID_individual, coefMat[,1], coefMat[,2], coefMat[,3], local_r2)
+      result_line <- c(ID_individual, coef_hat, coef_se, coef_t, local_r2)
       output_rows[[i]] <- result_line
       dataset_add_resid <- cbind(Psubsample, plm_subsample$residuals)
       dataset_add_resid <- as.data.frame(dataset_add_resid)
@@ -134,7 +145,7 @@ gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
       resid_rows[[i]] <- dataset_add_resid
       failed_ids <- c(failed_ids, ID_individual)
     }
-    if (huge_data_size == T)
+    if (huge_data_size)
     {
       progress_bar(loop_times = loop_times, nrow(ID_list))
       loop_times <- loop_times + 1

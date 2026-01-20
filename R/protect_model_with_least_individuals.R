@@ -19,9 +19,10 @@ protect_model_with_least_individuals <- function(data, ID_list, index,
                                                  kernel, p, longlat, bw_panel)
 {
   ID_list_single <- as.vector(ID_list[[1]])
-  max_dist <- c()
-  for (ID_individual in ID_list_single)
+  max_dist <- numeric(length(ID_list_single))
+  for (i in seq_along(ID_list_single))
   {
+    ID_individual <- ID_list_single[i]
     data$aim[data$id == ID_individual] <- 1
     data$aim[data$id != ID_individual] <- 0
     subsample <- data
@@ -35,12 +36,13 @@ protect_model_with_least_individuals <- function(data, ID_list, index,
     id_subsample <- dplyr::select(subsample, "id")
     id_subsample <- id_subsample[!duplicated(id_subsample$id),]
     id_subsample <- as.data.frame(id_subsample)
-    id_subsample <- id_subsample[1:bw_panel,]
+    bw_use <- min(bw_panel, nrow(id_subsample))
+    id_subsample <- id_subsample[seq_len(bw_use), , drop = FALSE]
     id_subsample <- as.data.frame(id_subsample)
     colnames(id_subsample) <- "id"
     id_subsample <- dplyr::mutate(id_subsample, flag = 1)
     subsample <- dplyr::inner_join(subsample, id_subsample, by = "id")
-    max_dist <- append(max_dist ,max(subsample$dist))
+    max_dist[i] <- max(subsample$dist)
   }
   lower <- max(max_dist) * 1.011 # because individuals with the weight lower than 0.01 would be ignored,
   # to guarantee all the individuals used in local panel model, we use 1.011 here.

@@ -31,7 +31,7 @@
 #' \item{statistic}{the value of the standard deviate of Moran's I.}
 #' \item{p.value}{the p-value of the test.}
 #' \item{Estimated.I}{the value of the observed Moran's I.}
-#' \item{Excepted.I}{the value of the expectation of Moran's I.}
+#' \item{Expected.I}{the value of the expectation of Moran's I.}
 #' \item{V2}{the value of the variance of Moran's I.}
 #' \item{alternative}{a character string describing the alternative hypothesis.}
 #' }
@@ -87,16 +87,21 @@ GWPR.moran.test <- function(plm_model, SDF, bw, adaptive = FALSE, p = 2, kernel 
   plm.resid <- as.data.frame(as.matrix(plm_model$residuals))
   n <- nrow(plm.resid)
   Ti <- ncol(plm.resid)
-  N <- Ti*n
-  id <- as.data.frame(as.numeric(row.names(plm.resid)))
-  colnames(id) <- "id"
-  SDF <- sp::merge(SDF, id, by.x = colnames(plm::index(plm_model$model))[1], by.y = "id" )
-  row.id <- as.vector(as.matrix(dplyr::select(SDF@data, dplyr::all_of((colnames(plm::index(plm_model$model))[1])))))
-  dp.locat <- as.matrix(sp::coordinates(SDF))
-  coord <- cbind(as.data.frame(dp.locat), dplyr::select(SDF@data, dplyr::all_of((colnames(plm::index(plm_model$model))[1]))) )
-  colnames(coord) <- c("X", "Y", "id")
-  coord <- dplyr::arrange(coord, "id")
-  dp.locat <- as.matrix(dplyr::select(coord, dplyr::all_of(c("X", "Y"))))
+
+  id_col <- colnames(plm::index(plm_model$model))[1]
+  resid_id <- rownames(plm.resid)
+  if (is.null(resid_id))
+  {
+    stop("The residuals matrix must have row names for individuals.")
+  }
+  resid_id <- as.character(resid_id)
+  sdf_id <- as.character(SDF@data[[id_col]])
+  match_idx <- match(resid_id, sdf_id)
+  if (anyNA(match_idx))
+  {
+    stop("Indexes in plm and SDP are not consistent.")
+  }
+  dp.locat <- as.matrix(sp::coordinates(SDF))[match_idx, , drop = FALSE]
   dMat <- GWmodel::gw.dist(dp.locat = dp.locat, rp.locat = dp.locat,
                            focus = 0, p = p, longlat=longlat)
   if(adaptive)
@@ -105,7 +110,12 @@ GWPR.moran.test <- function(plm_model, SDF, bw, adaptive = FALSE, p = 2, kernel 
   } # if adaptive bandwidth, the input number is the numbers of individuals rather than records.
   weight <- GWmodel::gw.weight(dMat, bw=bw, kernel=kernel, adaptive=adaptive)
   diag(weight) <- 0
-  weight <- weight/rowSums(weight)
+  rs <- rowSums(weight)
+  if(any(rs == 0))
+  {
+    stop("Some individuals have no neighbours (row sum of weights is zero); please increase bw.")
+  }
+  weight <- weight/rs
 
   resid_mat <- as.matrix(plm.resid)
   weighted_resid <- weight %*% resid_mat
@@ -140,7 +150,7 @@ GWPR.moran.test <- function(plm_model, SDF, bw, adaptive = FALSE, p = 2, kernel 
     }
   }
 
-  res <- list(statistic = ZI, p.value=PrI, Estimated.I = I.mean, Excepted.I = E, V2 = V2,
+  res <- list(statistic = ZI, p.value=PrI, Estimated.I = I.mean, Expected.I = E, V2 = V2,
               alternative=alternative)
   return(res)
 }

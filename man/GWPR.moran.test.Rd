@@ -34,7 +34,7 @@ A list of result:
 \item{statistic}{the value of the standard deviate of Moran's I.}
 \item{p.value}{the p-value of the test.}
 \item{Estimated.I}{the value of the observed Moran's I.}
-\item{Excepted.I}{the value of the expectation of Moran's I.}
+\item{Expected.I}{the value of the expectation of Moran's I.}
 \item{V2}{the value of the variance of Moran's I.}
 \item{alternative}{a character string describing the alternative hypothesis.}
 }

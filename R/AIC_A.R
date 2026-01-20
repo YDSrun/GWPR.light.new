@@ -149,7 +149,7 @@ AIC_A <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, kernel
       ### 0.1.1
 
 
-      if (huge_data_size == T)
+      if (huge_data_size)
       {
         progress_bar(loop_times = loop_times, nrow(ID_list))
         loop_times <- loop_times + 1

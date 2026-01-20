@@ -12,7 +12,7 @@
 #'
 #' @return Optimal bandwidth for GWPR
 #' @noRd
-gold <- function(fun,xL,xU,adapt.bw=F,...)
+gold <- function(fun,xL,xU,adapt.bw = FALSE,...)
 {
   lower.limitation <- xL
   upper.limitation <- xU

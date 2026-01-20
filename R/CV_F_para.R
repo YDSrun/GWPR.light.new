@@ -41,7 +41,11 @@ CV_F_para <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
   #  v0.1.1 the loss function is based on local r2
   # CVscore_vector <- foreach(ID_individual = ID_list_single, .combine = c) %dopar%
   # v0.1.2
-  residualsVector <- foreach(ID_individual = ID_list_single, .combine = c) %dopar%
+  residualsVector <- foreach::foreach(
+    ID_individual = ID_list_single,
+    .combine = c,
+    .packages = c("dplyr", "GWmodel", "plm")
+  ) %dopar%
   {
     data$aim[data$id == ID_individual] <- 1
     data$aim[data$id != ID_individual] <- 0

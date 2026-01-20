@@ -6,3 +6,5 @@
 .httr-oauth
 .DS_Store
 .spec-workflow
+GWPR.light.Rcheck/
+GWPR.light_*.tar.gz
