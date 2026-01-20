@@ -63,7 +63,6 @@ gwpr_F_plmtest <- function(bw = bw, data , SDF, index, ID_list,
     subsample <- subsample[(subsample$wgt > 0),]
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
-    wgt <- Psubsample$wgt
     plm_subsample_ols <- plm::plm(formula=formula, model="pooling", data=Psubsample,
                                   index=index, weights = wgt)
     test <- plm::plmtest(plm_subsample_ols, type=c("bp"))

@@ -54,15 +54,12 @@ gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
                          effect = effect, index=index, random.method = random.method)
   ID_list_single <- as.vector(ID_list[[1]])
   varibale_name_in_equation <- all.vars(formula)
+  coef_names <- colnames(stats::model.matrix(formula, data = data))
   if (model == "within")
   {
-    varibale_name_in_equation_out <- varibale_name_in_equation[2:length(varibale_name_in_equation)]
+    coef_names <- coef_names[coef_names != "(Intercept)"]
   }
-  else
-  {
-    varibale_name_in_equation_out <- varibale_name_in_equation
-    varibale_name_in_equation_out[1] <- "Intercept"
-  }
+  varibale_name_in_equation_out <- gsub("^\\(Intercept\\)$", "Intercept", coef_names)
   coef_count <- length(varibale_name_in_equation_out)
   output_rows <- vector("list", length(ID_list_single))
   resid_rows <- vector("list", length(ID_list_single))
@@ -99,7 +96,6 @@ gwpr_A <- function(bw, data, SDF, ID_list, formula, p, longlat, adaptive,
     subsample$wgt <- as.vector(weight)
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
-    wgt <- Psubsample$wgt
     plm_subsample <- tryCatch(
       plm::plm(formula=formula, model=model, data=Psubsample,
                effect = effect, index=index, weights = wgt,

@@ -31,9 +31,9 @@
 #' \item{SDF}{a Spatial*DataFrame (either Points or Polygons, see sp) integrated with fit.points, test value, p value, df}
 #' }
 #' @noRd
-gwpr_F_phtest <- function(bw = bw, data , SDF, index, ID_list , random.method = random.method,
+gwpr_F_phtest <- function(bw = bw, data , SDF, index, ID_list , random.method = "swar",
                           formula = formula, p = p, longlat = longlat, adaptive = adaptive,
-                          kernel = kernel, effect = effect, huge_data_size = huge_data_size)
+                          kernel = kernel, effect = "individual", huge_data_size = FALSE)
 {
   GW.arguments <- list(formula = formula, individual.number = nrow(ID_list), bw = bw,
                        kernel = kernel, adaptive = adaptive, p = p, longlat = longlat,
@@ -67,10 +67,8 @@ gwpr_F_phtest <- function(bw = bw, data , SDF, index, ID_list , random.method = 
     subsample <- subsample[(subsample$wgt > 0),]
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
-    wgt <- Psubsample$wgt
     plm_subsample_fem <- plm::plm(formula=formula, model="within", data=Psubsample,
                                   effect = effect, index=index, weights = wgt)
-    wgt <- Psubsample$wgt
     plm_subsample_rem <- plm::plm(formula=formula, model="random", data=Psubsample, random.method = random.method,
                                   effect = effect, index=index, weights = wgt)
     test <- plm::phtest(plm_subsample_fem, plm_subsample_rem)

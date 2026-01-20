@@ -31,7 +31,7 @@
 #' \item{statistic}{the value of the standard deviate of Moran's I.}
 #' \item{p.value}{the p-value of the test.}
 #' \item{Estimated.I}{the value of the observed Moran's I.}
-#' \item{Excepted.I}{the value of the expectation of Moran's I.}
+#' \item{Expected.I}{the value of the expectation of Moran's I.}
 #' \item{V2}{the value of the variance of Moran's I.}
 #' \item{alternative}{a character string describing the alternative hypothesis.}
 #' }
@@ -150,7 +150,7 @@ GWPR.moran.test <- function(plm_model, SDF, bw, adaptive = FALSE, p = 2, kernel 
     }
   }
 
-  res <- list(statistic = ZI, p.value=PrI, Estimated.I = I.mean, Excepted.I = E, V2 = V2,
+  res <- list(statistic = ZI, p.value=PrI, Estimated.I = I.mean, Expected.I = E, V2 = V2,
               alternative=alternative)
   return(res)
 }

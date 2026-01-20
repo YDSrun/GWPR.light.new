@@ -38,7 +38,11 @@ AIC_F_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
 
   cl <- parallel::makeCluster(cluster.number)
   doParallel::registerDoParallel(cl)
-  result_list <- foreach(ID_individual = ID_list_single, .combine = rbind) %dopar%
+  result_list <- foreach::foreach(
+    ID_individual = ID_list_single,
+    .combine = rbind,
+    .packages = c("dplyr", "GWmodel", "plm")
+  ) %dopar%
   {
     data_input$aim[data_input$id == ID_individual] <- 1
     data_input$aim[data_input$id != ID_individual] <- 0
@@ -51,14 +55,11 @@ AIC_F_para <- function(bw, data_input, ID_list, formula, p, longlat, adaptive, k
     dp_locat_subsample <- as.matrix(dp_locat_subsample)
     dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
                              focus = 1, p=p, longlat=longlat)
-    dMat <- GWmodel::gw.dist(dp.locat = dp_locat_subsample, rp.locat = dp_locat_subsample,
-                             focus = 1, p=p, longlat=longlat)
     weight <- GWmodel::gw.weight(as.numeric(dMat), bw=bw, kernel=kernel, adaptive=adaptive)
     subsample$wgt <- as.vector(weight)
     subsample <- subsample[(subsample$wgt > 0.01),]
     Psubsample <- plm::pdata.frame(subsample, index = index, drop.index = FALSE, row.names = FALSE,
                                    stringsAsFactors = FALSE)
-    wgt <- Psubsample$wgt
     plm_subsample <- try(plm::plm(formula=formula, model=model, data=Psubsample,
                                   effect = effect, index=index, weights = wgt,
                                   random.method = random.method), silent=TRUE)
