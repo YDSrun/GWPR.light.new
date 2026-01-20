@@ -20,15 +20,20 @@ protect_model_with_enough_freedom <- function(formula, data, ID_list, index,
   ID_list_single <- as.vector(ID_list[[1]])
   step_increase_lower <- 1
   lower <- 1
-  go_out <- T
+  go_out <- TRUE
+  max_lower <- length(ID_list_single)
   required_freedom <- length(all.vars(formula))
-  while((step_increase_lower < 1001)&(go_out == T))
+  while((step_increase_lower < min(1001, max_lower)) && isTRUE(go_out))
   {
     step_increase_lower <- step_increase_lower + 1 #required at least two individuals
     lower <- lower + 1
+    if (lower > max_lower)
+    {
+      break
+    }
     for (ID_individual in ID_list_single)
     {
-      go_out <- F
+      go_out <- FALSE
       data$aim[data$id == ID_individual] <- 1
       data$aim[data$id != ID_individual] <- 0
       subsample <- data
@@ -42,17 +47,22 @@ protect_model_with_enough_freedom <- function(formula, data, ID_list, index,
       id_subsample <- dplyr::select(subsample, "id")
       id_subsample <- id_subsample[!duplicated(id_subsample$id),]
       id_subsample <- as.data.frame(id_subsample) #TestCode
-      id_subsample <- id_subsample[1:lower,]
+      lower_use <- min(lower, nrow(id_subsample))
+      id_subsample <- id_subsample[seq_len(lower_use), , drop = FALSE]
       id_subsample <- as.data.frame(id_subsample)
       colnames(id_subsample) <- "id"
       id_subsample <- dplyr::mutate(id_subsample, flag = 1)
       subsample <- dplyr::inner_join(subsample, id_subsample, by = "id")
       if(nrow(subsample) < required_freedom)
       {
-        go_out <- T
+        go_out <- TRUE
         break
       }
     }
+  }
+  if (lower > max_lower)
+  {
+    lower <- max_lower
   }
   return(lower)
 }

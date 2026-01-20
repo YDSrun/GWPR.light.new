@@ -39,7 +39,7 @@
 #' @references Fotheringham, A. Stewart, Chris Brunsdon, and Martin Charlton. Geographically weighted regression: the analysis of spatially varying relationships. John Wiley & Sons, 2003.
 #' @noRd
 gwpr_F <- function(bw = bw, data, SDF, ID_list,
-                   formula = formula, p = p, longlat = longlat, adaptive = F,
+                   formula = formula, p = p, longlat = longlat, adaptive = FALSE,
                    model = model, index = index, kernel = kernel, effect = effect,
                    random.method = random.method, huge_data_size = FALSE)
 {
@@ -135,7 +135,7 @@ gwpr_F <- function(bw = bw, data, SDF, ID_list,
       resid_rows[[i]] <- dataset_add_resid
       failed_ids <- c(failed_ids, ID_individual)
     }
-    if (huge_data_size == T)
+    if (huge_data_size)
     {
       progress_bar(loop_times = loop_times, nrow(ID_list))
       loop_times <- loop_times + 1

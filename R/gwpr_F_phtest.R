@@ -45,11 +45,12 @@ gwpr_F_phtest <- function(bw = bw, data , SDF, index, ID_list , random.method = 
           "Model: Fixed Effects vs Random Effects"," ---- ", "Effect: ", effect, " ---- ", "Random Method: ", random.method, "\n",
           "If the p-value is lower than the specific level (0.01, 0.05, etc.), one model is inconsistent.\n")
   ID_list_single <- as.vector(ID_list[[1]])
-  output_result <- data.frame(Doubles = double(), Characters = character())
+  output_rows <- vector("list", length(ID_list_single))
   loop_times <- 1
 
-  for (ID_individual in ID_list_single)
+  for (i in seq_along(ID_list_single))
   {
+    ID_individual <- ID_list_single[i]
     data$aim[data$id == ID_individual] <- 1
     data$aim[data$id != ID_individual] <- 0
     subsample <- data
@@ -73,15 +74,20 @@ gwpr_F_phtest <- function(bw = bw, data , SDF, index, ID_list , random.method = 
     plm_subsample_rem <- plm::plm(formula=formula, model="random", data=Psubsample, random.method = random.method,
                                   effect = effect, index=index, weights = wgt)
     test <- plm::phtest(plm_subsample_fem, plm_subsample_rem)
-    result_line <- c(ID_individual, test$statistic, test$p.value, test$parameter)
-    output_result <- rbind(output_result, result_line)
-    if (huge_data_size == T)
+    output_rows[[i]] <- data.frame(
+      id = ID_individual,
+      statistic = as.numeric(test$statistic),
+      p.value = as.numeric(test$p.value),
+      df = as.numeric(test$parameter),
+      stringsAsFactors = FALSE
+    )
+    if (huge_data_size)
     {
       progress_bar(loop_times = loop_times, nrow(ID_list))
       loop_times <- loop_times + 1
     }
   }
-  colnames(output_result) <- c("id", "statistic", "p.value", "df")
+  output_result <- do.call(rbind, output_rows)
   SDF <- sp::merge(SDF, output_result, by = "id")
   result_list <- list(GW.arguments = GW.arguments, SDF = SDF)
   return(result_list)

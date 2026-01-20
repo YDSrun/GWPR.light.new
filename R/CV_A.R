@@ -70,7 +70,7 @@ CV_A <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
     CVscore <- nrow(subsample) * sum(plm_subsample$residuals^2) /
       (nrow(subsample) - length(varibale_name_in_equation) + 1)^2
     CVscore_vector[i] <- CVscore
-    if (huge_data_size == T)
+    if (huge_data_size)
     {
       progress_bar(loop_times = loop_times, nrow(ID_list))
       loop_times <- loop_times + 1

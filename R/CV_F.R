@@ -83,7 +83,7 @@ CV_F <- function(bw, data, ID_list, formula, p, longlat, adaptive, kernel,
 #    }
 #    CVscore_vector <- append(CVscore_vector, CVscore)
 
-    if (huge_data_size == T)
+    if (huge_data_size)
     {
       progress_bar(loop_times = loop_times, nrow(ID_list))
       loop_times <- loop_times + 1
